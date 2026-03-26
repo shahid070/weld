@@ -106,7 +106,7 @@ if c3.button("⏸ Pause / Resume"):
 
             st.session_state.log.append({
                 "Event": "Pause",
-                "Time": datetime.now().strftime("%H:%M:%S")
+                "Time": datetime.now(IST).strftime("%H:%M:%S")
             })
 
         else:
@@ -115,7 +115,7 @@ if c3.button("⏸ Pause / Resume"):
 
             st.session_state.log.append({
                 "Event": "Resume",
-                "Time": datetime.now().strftime("%H:%M:%S")
+                "Time": datetime.now(IST).strftime("%H:%M:%S")
             })
 
 # FINISH
@@ -126,7 +126,7 @@ if c4.button("✅ Finish"):
 
     st.session_state.log.append({
         "Event": "Finish",
-        "Time": datetime.now().strftime("%H:%M:%S")
+        "Time": datetime.now(IST).strftime("%H:%M:%S")
     })
 
 # ---------- STOPWATCH ----------
