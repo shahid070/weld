@@ -3,6 +3,9 @@ import pandas as pd
 import random
 import time
 from datetime import datetime
+import pytz
+
+IST = pytz.timezone("Asia/Kolkata")
 
 st.set_page_config(page_title="Welding Simulator", layout="wide")
 
@@ -72,7 +75,7 @@ if c1.button("▶ Start"):
     st.session_state.log = []
     st.session_state.log.append({
         "Event": "Start",
-        "Time": datetime.now().strftime("%H:%M:%S")
+        "Time": datetime.now(IST).strftime("%H:%M:%S")
     })
 
     # first data at 0
@@ -188,6 +191,7 @@ if st.session_state.finished and len(st.session_state.data) > 0:
     # ---------- TIMELINE ----------
     st.markdown("---")
     st.subheader("🕒 Welding Timeline")
+
 
     log_df = pd.DataFrame(st.session_state.log)
     st.dataframe(log_df, use_container_width=True)
