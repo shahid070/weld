@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import random
 import time
+from datetime import datetime
 
 st.set_page_config(page_title="Welding Simulator", layout="wide")
 
@@ -10,12 +11,16 @@ defaults = {
     "running": False,
     "paused": False,
     "data": [],
-    "start_time": None,
+    "start_time": 0,
     "elapsed": 0,
     "last_data_time": 0,
     "pause_start": 0,
     "total_pause": 0,
-    "final_time": 0
+    "final_time": 0,
+    "joint_name": "Joint_1",
+    "weld_type": "ROOT",
+    "finished": False,
+    "log": []
 }
 
 for k, v in defaults.items():
@@ -25,79 +30,145 @@ for k, v in defaults.items():
 # ---------- UI ----------
 st.title("🔥 Welding Simulator")
 
+col1, col2 = st.columns(2)
+
+with col1:
+    st.session_state.joint_name = st.text_input(
+        "Joint Name",
+        st.session_state.joint_name,
+        disabled=st.session_state.running
+    )
+
+with col2:
+    weld_options = ["ROOT", "HOT", "FILL", "CAP"]
+    st.session_state.weld_type = st.selectbox(
+        "Weld Type",
+        weld_options,
+        index=weld_options.index(st.session_state.weld_type),
+        disabled=st.session_state.running
+    )
+
 length = st.number_input("Joint Length (mm)", value=100)
 
-c1, c2, c3 = st.columns(3)
+st.markdown(
+    f"### 📍 Joint: `{st.session_state.joint_name}` | Weld Type: `{st.session_state.weld_type}`"
+)
+
+# ---------- BUTTONS ----------
+c1, c2, c3, c4 = st.columns(4)
 
 # START
 if c1.button("▶ Start"):
     st.session_state.running = True
     st.session_state.paused = False
+    st.session_state.finished = False
     st.session_state.data = []
     st.session_state.start_time = time.time()
     st.session_state.total_pause = 0
     st.session_state.elapsed = 0
     st.session_state.last_data_time = 0
 
-    # ✅ ADD FIRST ENTRY AT 0 sec
+    # reset log
+    st.session_state.log = []
+    st.session_state.log.append({
+        "Event": "Start",
+        "Time": datetime.now().strftime("%H:%M:%S")
+    })
+
+    # first data at 0
     st.session_state.data.append({
+        "Joint": st.session_state.joint_name,
+        "Weld Type": st.session_state.weld_type,
         "Time (sec)": 0,
         "Voltage (V)": round(random.uniform(25, 27), 2),
         "Current (A)": round(random.uniform(120, 130), 2)
     })
 
+# NEW JOINT
+if c2.button("🔄 New Joint"):
+    st.session_state.running = False
+    st.session_state.paused = False
+    st.session_state.data = []
+    st.session_state.elapsed = 0
+    st.session_state.final_time = 0
+    st.session_state.finished = False
+    st.session_state.log = []
+
 # PAUSE / RESUME
-if c2.button("⏸ Pause / Resume"):
+if c3.button("⏸ Pause / Resume"):
     if st.session_state.running:
         if not st.session_state.paused:
             st.session_state.paused = True
             st.session_state.pause_start = time.time()
+
+            st.session_state.log.append({
+                "Event": "Pause",
+                "Time": datetime.now().strftime("%H:%M:%S")
+            })
+
         else:
             st.session_state.paused = False
             st.session_state.total_pause += time.time() - st.session_state.pause_start
 
-# STOP
-if c3.button("⏹ Stop"):
+            st.session_state.log.append({
+                "Event": "Resume",
+                "Time": datetime.now().strftime("%H:%M:%S")
+            })
+
+# FINISH
+if c4.button("✅ Finish"):
     st.session_state.running = False
     st.session_state.final_time = st.session_state.elapsed
+    st.session_state.finished = True
 
-# ---------- TIMER ----------
-if st.session_state.running and not st.session_state.paused:
-    st.session_state.elapsed = int(
-        time.time() - st.session_state.start_time - st.session_state.total_pause
-    )
+    st.session_state.log.append({
+        "Event": "Finish",
+        "Time": datetime.now().strftime("%H:%M:%S")
+    })
+
+# ---------- STOPWATCH ----------
+if st.session_state.running:
+    if not st.session_state.paused:
+        st.session_state.elapsed = int(
+            time.time()
+            - st.session_state.start_time
+            - st.session_state.total_pause
+        )
 
 st.metric("⏱ Stopwatch (sec)", st.session_state.elapsed)
 
-# ---------- DATA GENERATION (FIXED) ----------
+# ---------- DATA GENERATION ----------
 if st.session_state.running and not st.session_state.paused:
 
-    # generate every 5 seconds using difference (NOT modulo)
     if st.session_state.elapsed - st.session_state.last_data_time >= 5:
-
         st.session_state.last_data_time = st.session_state.elapsed
 
         st.session_state.data.append({
+            "Joint": st.session_state.joint_name,
+            "Weld Type": st.session_state.weld_type,
             "Time (sec)": st.session_state.elapsed,
             "Voltage (V)": round(random.uniform(25, 27), 2),
             "Current (A)": round(random.uniform(120, 130), 2)
         })
 
-# ---------- ALWAYS SHOW TABLE ----------
+# ---------- TABLE ----------
 st.markdown("---")
 st.subheader("📋 Welding Data")
 
 if len(st.session_state.data) > 0:
     df = pd.DataFrame(st.session_state.data)
-    st.dataframe(df, use_container_width=True)
+    st.dataframe(
+        df[["Joint", "Weld Type", "Time (sec)", "Voltage (V)", "Current (A)"]],
+        use_container_width=True
+    )
 else:
     st.info("No data yet")
 
 # ---------- FINAL RESULT ----------
-if not st.session_state.running and len(st.session_state.data) > 0:
+if st.session_state.finished and len(st.session_state.data) > 0:
 
     st.markdown("---")
-    st.header("📊 Final Result")
+    st.header(f"📊 Final Result - {st.session_state.joint_name}")
 
     df = pd.DataFrame(st.session_state.data)
 
@@ -110,9 +181,16 @@ if not st.session_state.running and len(st.session_state.data) > 0:
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Time", total_time)
-    c2.metric("Avg V", round(avg_v, 2))
-    c3.metric("Avg A", round(avg_a, 2))
-    c4.metric("🔥 Heat", round(heat, 2))
+    c2.metric("Avg Voltage", round(avg_v, 2))
+    c3.metric("Avg Current", round(avg_a, 2))
+    c4.metric("🔥 Heat Input (kJ/mm)", round(heat, 2))
+
+    # ---------- TIMELINE ----------
+    st.markdown("---")
+    st.subheader("🕒 Welding Timeline")
+
+    log_df = pd.DataFrame(st.session_state.log)
+    st.dataframe(log_df, use_container_width=True)
 
 # ---------- AUTO REFRESH ----------
 if st.session_state.running:
