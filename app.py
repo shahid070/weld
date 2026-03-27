@@ -200,7 +200,7 @@ if st.session_state.finished and len(st.session_state.data) > 0:
     # ---------- EXCEL EXPORT ----------
     buffer = BytesIO()
 
-    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
 
         # SUMMARY
         summary_df = pd.DataFrame({
