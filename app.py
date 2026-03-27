@@ -4,6 +4,8 @@ import random
 import time
 from datetime import datetime
 import pytz
+from io import BytesIO
+
 
 IST = pytz.timezone("Asia/Kolkata")
 
@@ -128,6 +130,7 @@ if c4.button("✅ Finish"):
         "Event": "Finish",
         "Time": datetime.now(IST).strftime("%H:%M:%S")
     })
+   
 
 # ---------- STOPWATCH ----------
 if st.session_state.running:
@@ -166,7 +169,6 @@ if len(st.session_state.data) > 0:
     )
 else:
     st.info("No data yet")
-
 # ---------- FINAL RESULT ----------
 if st.session_state.finished and len(st.session_state.data) > 0:
 
@@ -192,10 +194,54 @@ if st.session_state.finished and len(st.session_state.data) > 0:
     st.markdown("---")
     st.subheader("🕒 Welding Timeline")
 
-
     log_df = pd.DataFrame(st.session_state.log)
     st.dataframe(log_df, use_container_width=True)
 
+    # ---------- EXCEL EXPORT ----------
+    buffer = BytesIO()
+
+    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+
+        # SUMMARY
+        summary_df = pd.DataFrame({
+            "Metric": [
+                "Joint Name",
+                "Weld Type",
+                "Total Time (sec)",
+                "Avg Voltage",
+                "Avg Current",
+                "Heat Input (kJ/mm)"
+            ],
+            "Value": [
+                st.session_state.joint_name,
+                st.session_state.weld_type,
+                total_time,
+                round(avg_v, 2),
+                round(avg_a, 2),
+                round(heat, 2)
+            ]
+        })
+
+        summary_df.to_excel(writer, sheet_name="Summary", index=False)
+
+        # DATA
+        df[["Time (sec)", "Voltage (V)", "Current (A)"]].to_excel(
+            writer, sheet_name="Welding Data", index=False
+        )
+
+        # TIMELINE
+        if not log_df.empty:
+            log_df.to_excel(writer, sheet_name="Timeline", index=False)
+        else:
+            pd.DataFrame({"Info": ["No timeline data"]}).to_excel(
+                writer, sheet_name="Timeline", index=False
+            )
+
+    st.download_button(
+        "⬇ Download Excel Report",
+        buffer.getvalue(),
+        file_name=f"{st.session_state.joint_name}_report.xlsx"
+    )
 # ---------- AUTO REFRESH ----------
 if st.session_state.running:
     time.sleep(1)
